@@ -11,8 +11,10 @@ subtitle: Bibliographic analysis
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(bibliometrix) 
+library(stringi)
+library(ggplot2)
 
-M <- convert2df("../../data/web_data_papers/savedrecs.bib", dbsource = "wos", format = "bibtex")
+#M <- convert2df("../../data/web_data_papers/savedrecs.bib", dbsource = "wos", format = "bibtex")
 
 ```
 
@@ -27,8 +29,16 @@ plot(x = results, k = 10, pause = FALSE)
 ```
 
 ```{r, echo = FALSE}
-data = S$MostRelKeywords[,1:2]
+data = data.frame(S$MostRelKeywords[,1:2])
+colnames(data) <- c('keywords','articles')
+data$articles <- as.numeric(data$articles)
+data$keywords <- as.character(data$keywords)
 
+data$keywords <- factor(data$keywords, levels=unique(data$keywords))
+
+ggplot(data[1:20,], aes(x = keywords, y = articles, fill = keywords)) + 
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = as.character(keywords)), vjust = 0)
 
 ```
 
@@ -46,10 +56,18 @@ CR <- citations(M, field = "author", sep = ";")
 CR$Cited[1:10]
 ```
 
-## To obtain the most frequent local cited authors:
+## Local citations
+
+### Authors
 ```{r}
 CR <- localCitations(M, results, sep = ";")
-CR[1:10]
+CR$Authors[1:20,]
+
+```
+
+### Papers
+```{r}
+CR$Papers[1:20,]
 ```
 
 ## Dominance
@@ -98,7 +116,7 @@ sort(Matrix::colSums(A), decreasing = TRUE)[1:15]
 Bibliographic collaboration Scientific collaboration network is a network where nodes are authors and links are coauthorships as the latter is one of the most well documented forms of scientific collaboration (Glanzel, 2004). An author collaboration network can be obtained using the general formulation: AC=At.A
 . where A is a bipartite network Manuscripts x Authors.
 
-```{r}
+```{r, echo = FALSE}
 NetMatrix <- biblioNetwork(M, analysis = "coupling", network = "references", sep = ". ")
 
 #NetMatrix <- biblioNetwork(M, analysis = "coupling", network = "authors", sep = ";")
@@ -108,16 +126,14 @@ NetMatrix <- biblioNetwork(M, analysis = "coupling", network = "references", sep
 NetMatrix <- biblioNetwork(M, analysis = "collaboration", network = "authors", sep = ";")
 net=networkPlot(NetMatrix, n = 40, Title = "Bibliographic collaboration", type = "fruchterman", size=FALSE, remove.multiple=TRUE,
                 labelsize = .6)
-net
 ```
 
 Country specific collaboration
 
-```{r}
+```{r, echo = FALSE}
 # Create a country collaboration network
 M <- metaTagExtraction(M, Field = "AU_CO", sep = ";")
 NetMatrix <- biblioNetwork(M, analysis = "collaboration", network = "countries", sep = ";")
 # Plot the network
 net=networkPlot(NetMatrix, n = 20, Title = "Country Collaboration", type = "circle", size=TRUE,remove.multiple=FALSE)
-net
 ```
