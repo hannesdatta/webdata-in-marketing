@@ -1,0 +1,123 @@
+---
+title: "Web data in Academic Marketing Research"
+author: "Hannes Datta"
+date: "10/1/2021"
+output:
+  html_document:
+    df_print: paged
+subtitle: Bibliographic analysis
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(bibliometrix) 
+
+M <- convert2df("../../data/web_data_papers/savedrecs.bib", dbsource = "wos", format = "bibtex")
+
+```
+
+```{r}
+results <- biblioAnalysis(M, sep = ";")
+S = summary(object = results, k = 100, pause = FALSE)
+
+```
+
+```{r, echo=FALSE}
+plot(x = results, k = 10, pause = FALSE)
+```
+
+```{r, echo = FALSE}
+data = S$MostRelKeywords[,1:2]
+
+
+```
+
+## Analysis of cited references
+
+```{r}
+CR <- citations(M,field="article", sep = ";")
+CR$Cited[1:10]
+```
+
+## To obtain the most frequent cited first authors:
+```{r}
+# fix anonymous?!
+CR <- citations(M, field = "author", sep = ";")
+CR$Cited[1:10]
+```
+
+## To obtain the most frequent local cited authors:
+```{r}
+CR <- localCitations(M, results, sep = ";")
+CR[1:10]
+```
+
+## Dominance
+
+
+The Dominance Factor is a ratio indicating the fraction of multi authored articles in which a scholar appears as first author.
+```{r}
+DF <- dominance(results, k = 10)
+DF
+```
+
+### Author's hindex
+#The index is based on the set of the scientist’s most cited papers and the number of citations that they have received in other publications.
+
+#```{r}
+#indices <- Hindex(M, authors=c("WOODALL WH"), sep = ";")
+## Bornmann's impact indices:
+#indices$H
+#```
+
+# Lotka's law coefficient estimation
+
+
+The function lotka estimates Lotka’s law coefficients for scientific productivity (Lotka A.J., 1926). Lotka’s law describes the frequency of publication by authors in any given field as an inverse square law, where the number of authors publishing a certain number of articles is a fixed ratio to the number of authors publishing a single article. This assumption implies that the theoretical beta coefficient of Lotka’s law is equal to 2. Using lotka function is possible to estimate the Beta coefficient of our bibliographic collection and assess,through a statistical test, the similarity of this empirical distribution with the theoretical one.
+
+```{r}
+L <- lotka(results)
+# Author Productivity. Empirical Distribution
+L$AuthorProd
+
+```
+
+# Citation networks
+
+```{r}
+A <- cocMatrix(M, Field = "SO", sep = ";")
+sort(Matrix::colSums(A), decreasing = TRUE)[1:15]
+```
+
+```{r}
+A <- cocMatrix(M, Field = "CR", sep = ". ")
+sort(Matrix::colSums(A), decreasing = TRUE)[1:15]
+```
+
+
+Bibliographic collaboration Scientific collaboration network is a network where nodes are authors and links are coauthorships as the latter is one of the most well documented forms of scientific collaboration (Glanzel, 2004). An author collaboration network can be obtained using the general formulation: AC=At.A
+. where A is a bipartite network Manuscripts x Authors.
+
+```{r}
+NetMatrix <- biblioNetwork(M, analysis = "coupling", network = "references", sep = ". ")
+
+#NetMatrix <- biblioNetwork(M, analysis = "coupling", network = "authors", sep = ";")
+# plot authors' similarity (first 20 authors)
+#net=networkPlot(NetMatrix, n = 20, Title = "Authors' Coupling", type = "fruchterman", size=FALSE, remove.multiple=TRUE, vos.path="c:/Users/DE/Desktop/bibliometRics/VOSviewer")
+
+NetMatrix <- biblioNetwork(M, analysis = "collaboration", network = "authors", sep = ";")
+net=networkPlot(NetMatrix, n = 40, Title = "Bibliographic collaboration", type = "fruchterman", size=FALSE, remove.multiple=TRUE,
+                labelsize = .6)
+net
+```
+
+Country specific collaboration
+
+```{r}
+# Create a country collaboration network
+M <- metaTagExtraction(M, Field = "AU_CO", sep = ";")
+NetMatrix <- biblioNetwork(M, analysis = "collaboration", network = "countries", sep = ";")
+# Plot the network
+net=networkPlot(NetMatrix, n = 20, Title = "Country Collaboration", type = "circle", size=TRUE,remove.multiple=FALSE)
+net
+```

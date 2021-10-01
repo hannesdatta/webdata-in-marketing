@@ -1,4 +1,5 @@
-.DS_store
+**tex
+.DS_Store
 *.log
 *.aux
 *.Rhistory
@@ -6,3 +7,6 @@
 **gen/
 **.Rout
 *.csv
+**html
+**txt
+.Rproj.user
