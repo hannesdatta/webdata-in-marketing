@@ -7,6 +7,11 @@ library(bibliometrix)
 # ==============
 
 M <- convert2df("../../data/web_data_papers/savedrecs.bib", dbsource = "wos", format = "bibtex")
+# filter to <= 2020 data
+M <- M[M$PY<=2020,]
+webdata <- M
+
+
 rmarkdown::render('bib_analysis.Rmd', output_file=paste0('../../gen/analysis/output/webdata_papers.html'))
 
 
@@ -29,4 +34,13 @@ for (fn in fns) {
 
 
 M <- convert2df(bibfile, dbsource = "wos", format = "bibtex")
+
+M <- M[grepl('2004|2005|2006|2007|2008|2009|2010|2011|2012|2013|2014|2015|2016|2017|2018|2019|2020', rownames(M), ignore.case=T),]
+M <- M[!grepl('retract|biographical|book|correction|editorial|letter', M$DT, ignore.case=T),]
+
 rmarkdown::render('bib_analysis.Rmd', output_file=paste0('../../gen/analysis/output/all_papers.html'))
+
+# Remove "web data" papers
+M <- M[!M$DI %in% webdata$DI,]
+
+rmarkdown::render('bib_analysis.Rmd', output_file=paste0('../../gen/analysis/output/not_webdata_papers.html'))
