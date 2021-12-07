@@ -1,0 +1,133 @@
+---
+title: "Summary stats"
+author: "Hannes Datta"
+date: "12/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(googledrive)
+library(readxl)
+library(data.table)
+library(ggplot2)
+
+drive_download(as_id('1TU1q_jXhUXsVcyxCr9fYGD9mK6j3he5f'), path = '../../gen/analysis/temp/coding.xlsx', overwrite=T)
+
+coding <- data.table(readxl::read_xlsx('../../gen/analysis/temp/coding.xlsx'))
+
+
+```
+
+## Analysis
+
+- integrate new wos data
+- something on cites? or do this from wos?
+- errors/ref in line 75?
+
+### Content of data
+```{r}
+
+table(coding$Focal_entity_studied) # how to summarize? / which units represent our "target" units? instead, use keywords & do LDA?
+
+# Overall
+
+tmp=strsplit(coding$`scraped data_source`, ',', fixed=T) # how to summarize?
+
+cleaned <- unlist(tmp)
+library(stringr)
+cleaned <- str_to_title(str_trim(cleaned))
+
+cleaned[grepl('googletrends', cleaned, ignore.case=T)]<- 'Google Trends'
+cleaned[grepl('imdb', cleaned, ignore.case=T)]<- 'IMDB'
+cleaned[grepl('amazon', cleaned, ignore.case=T)]<- 'Amazon'
+cleaned[grepl('bn[.]com', cleaned, ignore.case=T)]<- 'Barnes & Nobles'
+
+df = data.table(table(cleaned))
+
+setorderv(df, 'N', order=-1L)
+df[, share:=N/sum(N,na.rm=T)]
+head(df,25)
+
+# API only
+tmp=strsplit(coding[API==1]$`scraped data_source`, ',', fixed=T) 
+
+cleaned <- unlist(tmp)
+cleaned <- str_to_title(str_trim(cleaned))
+
+cleaned[grepl('googletrends', cleaned, ignore.case=T)]<- 'Google Trends'
+cleaned[grepl('imdb', cleaned, ignore.case=T)]<- 'IMDB'
+cleaned[grepl('amazon', cleaned, ignore.case=T)]<- 'Amazon'
+cleaned[grepl('bn[.]com', cleaned, ignore.case=T)]<- 'Barnes & Nobles'
+
+df = data.table(table(cleaned))
+
+setorderv(df, 'N', order=-1L)
+df[, share:=N/sum(N,na.rm=T)]
+head(df,25)
+
+
+# Also compare to other data sets
+```
+
+### Sources used
+
+### Type of data (e.g., textual)
+
+```{r}
+vars = c('textual','numeric','images', 'video','audio') #,'other_data')
+
+summary(coding[, vars, with=F])
+
+# how to replace audio? why no coding for iamges/video (83/91)?
+
+```
+
+### Type of data format [panel vs. cross sectional]
+
+```{r}
+vars = c('Netnography','Cross_sectional','Panel_data') #,'other_data')
+
+tmp = coding[, vars, with=F]
+tmp[!is.na(Cross_sectional), Netnography:=0]
+
+table(tmp$Cross_sectional+tmp$Panel_data)
+
+summary(tmp)
+
+# how to treat NAs?
+# how can it be that they do both?
+
+```
+
+### How is data used in empirical application?
+
+don't think we can do that!
+
+## Extraction technology
+
+```{r}
+vars = c('PY_WoS', 'Scraped','API','Reused', 'Live_scraper','Archival_scraper') #,'other_data')
+		
+tmp = coding[, vars, with=F]
+tmp[, Scraped:=as.numeric(Scraped)]
+tmp[, Reused:=as.numeric(Reused)]
+
+tmp[!is.na(API)&is.na(Scraped), ':=' (Scraped=0)]
+tmp[!is.na(API)&is.na(Reused), ':=' (Reused=0)]
+
+tmp2= tmp[, list(N=.N, scraped_vs_api=length(which(Scraped==1))/.N,
+                 archival = length(which(Archival_scraper==1))/.N), by = c('PY_WoS')]
+setorder(tmp2, PY_WoS)
+
+plot(tmp2$PY_WoS, tmp2$scraped_vs_api,type='l', ylab = 'Scraped (vs. API data)', xlab = 'year of publication')
+plot(tmp2$PY_WoS, tmp2$archival,type='l', ylab = 'Archival data (vs. live data)', xlab = 'year of publication')
+```
+
+# Over time?
+
+# nothing reused?!
+
+# how to treat NAs?
+# how can it be that they do both?

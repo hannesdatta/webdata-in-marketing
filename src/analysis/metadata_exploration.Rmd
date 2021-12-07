@@ -1,0 +1,179 @@
+---
+title: "Meta data exploration"
+author: "Hannes Datta"
+date: "10/20/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(xlsx)
+library(knitr)
+library(wordcloud)
+
+if (file.exists('../../data/web_data_papers/coding.csv')) {
+  coding <- fread('../../data/web_data_papers/coding.csv')
+  
+} else {
+  coding <- read.xlsx('../../data/web_data_papers/coding.xlsx', 1)
+  colnames(coding) <- tolower(colnames(coding))
+  coding <- data.table(coding)
+  fwrite(coding, '../../data/web_data_papers/coding.csv')  
+}
+
+coding <- coding[py_wos>=2004 & py_wos <=2020]
+
+# filter on publication data 2020! (cross ref w/ bib files)
+```
+
+## How many papers have been coded?
+
+```{r}
+# number of papers
+length(unique(coding$doi))
+
+```
+
+Correct?
+
+## Scraping versus APIs
+
+```{r}
+table(coding$scraped)
+summary(coding$scraped)
+
+
+table(coding$api)
+summary(coding$api)
+
+table(coding$api+coding$scraped) # --> 48 papers weren't classified to use either API nor scraping
+
+coding[,type_of_study:=as.character('')]
+coding[(scraped==0)|is.na(scraped)&api==1, type_of_study:='api']
+coding[scraped==1&(api==0|is.na(api)), type_of_study:='scraping']
+coding[scraped==1&api==1, type_of_study:='api + scraping']
+coding[scraped==0&api==0, type_of_study:='no scraping']
+coding[(is.na(scraped)|is.na(api))&type_of_study=='', type_of_study:='NA']
+
+tmp = coding[, list(N=.N), by = c('type_of_study')]
+
+kable(tmp)
+
+```
+- largely incomplete data! e.g., s_commerce data
+
+## Share of paper/data source
+
+```{r}
+coding[, s_databases_recoded := as.numeric(substr(s_databases,1,2))]
+coding[, s_other_recoded := 1]
+coding[grepl('0', s_other), s_other_recoded := 0]
+
+vars <- c('s_social_network','s_e_commerce', 's_reviewing_platform',
+          's_forum', 's_databases_recoded',	's_aggregators', 's_news', 's_other_recoded')
+
+summary(coding[, vars,with=F])
+
+tmp = coding[, lapply(.SD, mean, na.rm=T), .SDcols=vars]
+tmp = data.table(var=colnames(tmp), share = t(tmp))
+
+setorderv(tmp, 'share.V1', order=-1L)
+
+# how can that be? OTHERs so high?! Then we didn't get our classifications well?
+
+```
+
+### Primary data versus ...?
+```{r}
+
+table(coding$primary_data)
+
+# how to recode?
+
+```
+
+## Geography: US vs other countries
+
+```{r}
+
+table(coding$geography_us)
+table(coding$geography_other)
+
+# why are so many 1 - and not given w/ country name?
+# Notre Dame is not a country???
+```
+
+## Which type of variables were gathered?
+
+```{r}
+
+vars <- c('dv_web', 'iv_web',
+        'other_var_web')
+        
+summary(coding[, vars,with=F])
+
+# many missing!
+
+```
+
+## Scraping tech: Live versus archival
+
+```{r}
+summary(coding$live_scraper)
+summary(coding$archival_scraper)
+
+# is this correct?
+# lot's of missings!
+
+```
+
+### Type of dataset built
+
+```{r}
+summary(coding$field_experiment) # so high?!
+summary(coding$cross_sectional) # why is sum of cross section + panel higher than 1?!
+summary(coding$panel_data)
+```
+
+### Type of data extracted
+
+```{r}
+
+vars <- c('textual','numeric','visual','video','other_data')
+        
+summary(coding[, vars,with=F])
+
+table(coding$other_data)
+
+# weird - some of this is textual!
+```
+
+### Authorship
+
+```{r}
+vars <- grep('^author', colnames(coding), value=T)
+vars <- setdiff(vars, c('authors_wos'))
+
+
+coding[, author_assistant_professor_recoded := as.numeric(substr(author_assistant_professor, 1,2))]
+
+coding[, author_full_professor_recoded := as.numeric(substr(author_full_professor, 1,2))]
+
+vars <- c('author_phd','author_assistant_professor_recoded',
+          'author_associate_professor',
+          'author_full_professor_recoded')
+
+summary(coding[, vars,with=F])
+
+# seems like web data is quite junior-heavy!
+
+```
+
+### Focal entities studied
+
+```{r}
+
+wordcloud(coding$focal_entity_studied)
