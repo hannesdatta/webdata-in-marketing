@@ -8,126 +8,90 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(googledrive)
-library(readxl)
 library(data.table)
 library(ggplot2)
-
-drive_download(as_id('1TU1q_jXhUXsVcyxCr9fYGD9mK6j3he5f'), path = '../../gen/analysis/temp/coding.xlsx', overwrite=T)
-
-coding <- data.table(readxl::read_xlsx('../../gen/analysis/temp/coding.xlsx'))
-
-
-```
-
-## Analysis
-
-- integrate new wos data
-- something on cites? or do this from wos?
-- errors/ref in line 75?
-
-### Content of data
-```{r}
-
-table(coding$Focal_entity_studied) # how to summarize? / which units represent our "target" units? instead, use keywords & do LDA?
-
-# Overall
-
-tmp=strsplit(coding$`scraped data_source`, ',', fixed=T) # how to summarize?
-
-cleaned <- unlist(tmp)
 library(stringr)
-cleaned <- str_to_title(str_trim(cleaned))
+library(bibliometrix)
 
-cleaned[grepl('googletrends', cleaned, ignore.case=T)]<- 'Google Trends'
-cleaned[grepl('imdb', cleaned, ignore.case=T)]<- 'IMDB'
-cleaned[grepl('amazon', cleaned, ignore.case=T)]<- 'Amazon'
-cleaned[grepl('bn[.]com', cleaned, ignore.case=T)]<- 'Barnes & Nobles'
-
-df = data.table(table(cleaned))
-
-setorderv(df, 'N', order=-1L)
-df[, share:=N/sum(N,na.rm=T)]
-head(df,25)
-
-# API only
-tmp=strsplit(coding[API==1]$`scraped data_source`, ',', fixed=T) 
-
-cleaned <- unlist(tmp)
-cleaned <- str_to_title(str_trim(cleaned))
-
-cleaned[grepl('googletrends', cleaned, ignore.case=T)]<- 'Google Trends'
-cleaned[grepl('imdb', cleaned, ignore.case=T)]<- 'IMDB'
-cleaned[grepl('amazon', cleaned, ignore.case=T)]<- 'Amazon'
-cleaned[grepl('bn[.]com', cleaned, ignore.case=T)]<- 'Barnes & Nobles'
-
-df = data.table(table(cleaned))
-
-setorderv(df, 'N', order=-1L)
-df[, share:=N/sum(N,na.rm=T)]
-head(df,25)
-
-
-# Also compare to other data sets
+load(file= '../../gen/analysis/temp/citation_database.RData')
 ```
 
-### Sources used
+### Analysis
+```{r}
+# Overall
+clean_data_source <- function(x) {
+  x[grepl('googletrends', x, ignore.case=T)]<- 'Google Trends'
+x[grepl('imdb', x, ignore.case=T)]<- 'IMDB'
+x[grepl('amazon', x, ignore.case=T)]<- 'Amazon'
+x[grepl('bn[.]com', x, ignore.case=T)]<- 'Barnes & Nobles'
 
-### Type of data (e.g., textual)
+  x
+}
+```
 
 ```{r}
-vars = c('textual','numeric','images', 'video','audio') #,'other_data')
 
-summary(coding[, vars, with=F])
+tmp = coding[, list(N=length(which(web==T)), first_web_paper = min(year[web==T]),
+                  avg_N = length(which(web==T))/(2020-min(year[web==T])+1),
+                  author_juniors=length(which(author_assistant_professor+author_post_doc+author_phd>0))/length(which(web==T)),
+                  
+                  cites = mean(tcperyear[web==T]),
+                  cites_index = mean(tcperyear[web==T])/mean(tcperyear),
+                  cites_median = median(tcperyear[web==T]),
+                  cites_median_index = median(tcperyear[web==T])/median(tcperyear),
+                  
+                  uniq_platforms = length(unique(str_trim(tolower(unlist(split(`scraped data_source`,',')))))),
+                  share_northamerica = length(which(grepl('US|canada', `geography_country (or worldwide)`,ignore.case=T)))/length(which(web==T)),
+                  share_europe = length(which(grepl('eu|ger|uk|germany|italy|sweden|france|austria|switz|denmark|netherl|poland|luxem|belgium|czech', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
+                  share_asia = length(which(grepl('china|korea|japan', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
+                  share_other = length(which(grepl('worldwide|N[/]A|English[-]speaking', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
+                  
+                  
+                 
+                  share_textual = length(which(textual==1))/length(which(web==T)),
+                  share_numeric = length(which(numeric==1))/length(which(web==T)),
+                  share_images = length(which(images==1))/length(which(web==T)),
+                  share_video = length(which(video==1))/length(which(web==T)),
+                  
+                  share_scraped = length(which(scraped==1&api==0))/length(which(web==T)),
+                  share_api = length(which(api==1&scraped==0))/length(which(web==T)),
+                  share_scraped_api = length(which(scraped==1&api==1))/length(which(web==T)),
+                  
+                  share_live = length(which(live_scraper==T))/length(which(web==T))
+                  
+                  #share_US_any = length(which(grepl('US', `Geography_Country (or worldwide)`)))/.N
+                  ), by = c('journal')]
 
-# how to replace audio? why no coding for iamges/video (83/91)?
+tmp2 = dcast(melt(tmp, id.vars=c('journal')), variable~journal)
+setcolorder(tmp2, c('variable','JM','JMR','JCR','JCP','MktSci'))
+
+
+# Notes:
+# 
+# focal variables of interest
+# --> add avg. number of platforms
+# add platform concentration (make clean column)
+# keyword distrubtion + keyword concentration index
+# Hannes checks web of science to compare author juniors
+# relative impact (impact of paper, relative to all papers in the journal)
+# Highest cited papers, per year + references
+# Illustrative papers, highest-impact research, by year
+
+
+library(knitr)
+kable(tmp2,digits=3)
+
+# -PhD/Assistant/Postdocs
+
+# -uniq platforms / number of papers (excluding "outliers")
+# - source concentration top 3 share, top 5 share (herfindahl). 
+# - names of top 3 sources
 
 ```
-
-### Type of data format [panel vs. cross sectional]
 
 ```{r}
-vars = c('Netnography','Cross_sectional','Panel_data') #,'other_data')
-
-tmp = coding[, vars, with=F]
-tmp[!is.na(Cross_sectional), Netnography:=0]
-
-table(tmp$Cross_sectional+tmp$Panel_data)
-
-summary(tmp)
-
-# how to treat NAs?
-# how can it be that they do both?
+# JOURNAL TIME GRAPH
+timing = coding[, list(.N),by=c('journal', 'year')]
 
 ```
 
-### How is data used in empirical application?
-
-don't think we can do that!
-
-## Extraction technology
-
-```{r}
-vars = c('PY_WoS', 'Scraped','API','Reused', 'Live_scraper','Archival_scraper') #,'other_data')
-		
-tmp = coding[, vars, with=F]
-tmp[, Scraped:=as.numeric(Scraped)]
-tmp[, Reused:=as.numeric(Reused)]
-
-tmp[!is.na(API)&is.na(Scraped), ':=' (Scraped=0)]
-tmp[!is.na(API)&is.na(Reused), ':=' (Reused=0)]
-
-tmp2= tmp[, list(N=.N, scraped_vs_api=length(which(Scraped==1))/.N,
-                 archival = length(which(Archival_scraper==1))/.N), by = c('PY_WoS')]
-setorder(tmp2, PY_WoS)
-
-plot(tmp2$PY_WoS, tmp2$scraped_vs_api,type='l', ylab = 'Scraped (vs. API data)', xlab = 'year of publication')
-plot(tmp2$PY_WoS, tmp2$archival,type='l', ylab = 'Archival data (vs. live data)', xlab = 'year of publication')
-```
-
-# Over time?
-
-# nothing reused?!
-
-# how to treat NAs?
-# how can it be that they do both?

@@ -1,19 +1,8 @@
 rm(list = ls())
 library(knitr)
 library(bibliometrix)
-
-
-# Marketing data
-# ==============
-
-M <- convert2df("../../data/web_data_papers/savedrecs.bib", dbsource = "wos", format = "bibtex")
-# filter to <= 2020 data
-M <- M[M$PY<=2020,]
-webdata <- M
-
-
-rmarkdown::render('bib_analysis.Rmd', output_file=paste0('../../gen/analysis/output/webdata_papers.html'))
-
+library(stringr)
+library(data.table)
 
 # All publication data
 # ====================
@@ -33,14 +22,32 @@ for (fn in fns) {
 }
 
 
-M <- convert2df(bibfile, dbsource = "wos", format = "bibtex")
+all_papers <- convert2df(bibfile, dbsource = "wos", format = "bibtex")
 
-M <- M[grepl('2004|2005|2006|2007|2008|2009|2010|2011|2012|2013|2014|2015|2016|2017|2018|2019|2020', rownames(M), ignore.case=T),]
-M <- M[!grepl('retract|biographical|book|correction|editorial|letter', M$DT, ignore.case=T),]
+# filter for target years
+all_papers <- all_papers[all_papers$PY %in% 2004:2020,]
 
+# fill in missing DOI of article(s)
+all_papers$DI[grepl("THE NETWORK VALUE OF PRODUCTS", all_papers$TI, ignore.case=T)] <- '10.1509/jm.11.0400'
+
+# filter out irrelevant articles
+table(all_papers$DT)
+all_papers <- all_papers[!grepl('retract|biographical|book|correction|editorial|letter', all_papers$DT, ignore.case=T),]
+nrow(all_papers)
+
+# Run analysis
+# ====================
+
+# All papers
+M <- all_papers
 rmarkdown::render('bib_analysis.Rmd', output_file=paste0('../../gen/analysis/output/all_papers.html'))
 
-# Remove "web data" papers
-M <- M[!M$DI %in% webdata$DI,]
+# Web-data papers only
+web_dois <- data.table(readxl::read_xlsx('../../gen/analysis/temp/coding.xlsx'))
+dois <- str_trim(web_dois$DOI)
+M <- all_papers[all_papers$DI%in%dois,]
+rmarkdown::render('bib_analysis.Rmd', output_file=paste0('../../gen/analysis/output/webdata_papers.html'))
 
-rmarkdown::render('bib_analysis.Rmd', output_file=paste0('../../gen/analysis/output/not_webdata_papers.html'))
+# Non-web data papers only
+M <- all_papers[!all_papers$DI%in%dois,]
+rmarkdown::render('bib_analysis.Rmd', output_file=paste0('../../gen/analysis/output/nonwebdata_papers.html'))
