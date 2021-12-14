@@ -10,6 +10,7 @@ library(readxl)
 # Perform bibliographic analysis
   fns <- list.files('../../data/all_papers', pattern = 'bib', full.names=T)
   
+  dir.create('../../gen/analysis/temp', recursive=T)
   bibfile = '../../gen/analysis/temp/joined.bib'
   sink(bibfile, append=F)
   sink()

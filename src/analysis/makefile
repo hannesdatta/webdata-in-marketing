@@ -1,7 +1,11 @@
-# Notes: 
-# - If run on unix system, use rm instead of del command in clean  
-# - Careful with spaces! If use \ to split to multiple lines, cannot have a space after \ 
+all: ../../gen/analysis/summary.html
 
 # OVERALL BUILD RULES
-../../gen/analysis/output/webdata.html ../../gen/analysis/output/all_papers.html: bib_analysis.Rmd run.R
+../../gen/analysis/temp/citation_database.RData: prepare_citations.R
+		Rscript prepare_citations.R
+
+../../gen/analysis/output/webdata_papers.html: bib_analysis.Rmd run.R ../../gen/analysis/temp/citation_database.RData
 		R --vanilla < run.R
+		
+../../gen/analysis/summary.html: summary.Rmd ../../gen/analysis/temp/citation_database.RData
+		R -e "rmarkdown::render('summary.Rmd', output_file = '../../gen/analysis/summary.html')"
