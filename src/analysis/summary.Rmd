@@ -31,21 +31,41 @@ x[grepl('bn[.]com', x, ignore.case=T)]<- 'Barnes & Nobles'
 
 ```{r}
 
+get_n_keywords = function(x, topx=3) {
+ res=gsub('-', ' ', as.character(x))
+  
+ res= (str_trim(tolower(unlist(strsplit(res, ';')))))
+ res=table(res)
+ res=rev(res[order(res)])
+ return(paste0(names(res)[1:topx], collapse=', '))
+}
+  
+first_platforms = coding[web==T, list(platforms=unique(str_trim(tolower(unlist(strsplit(`scraped data_source`,',')))))),
+                          by = c('doi', 'year')]
+first_platforms[, first:=year==min(year),by=c('platforms')]
+first_platforms_agg = first_platforms[, list(first=any(first)),by=c('doi')]
+
+setkey(first_platforms_agg, doi)
+setkey(coding, doi)
+coding[first_platforms_agg, first_time:=i.first]
+
 tmp = coding[, list(N=length(which(web==T)), first_web_paper = min(year[web==T]),
-                  avg_N = length(which(web==T))/(2020-min(year[web==T])+1),
-                  author_juniors=length(which(author_assistant_professor+author_post_doc+author_phd>0))/length(which(web==T)),
+                  avg_papers_per_year = length(which(web==T))/(2020-min(year[web==T])+1),
+                  share_juniors=length(which(author_assistant_professor+author_post_doc+author_phd>0))/length(which(web==T)),
                   
-                  cites = mean(tcperyear[web==T]),
-                  cites_index = mean(tcperyear[web==T])/mean(tcperyear),
-                  cites_median = median(tcperyear[web==T]),
-                  cites_median_index = median(tcperyear[web==T])/median(tcperyear),
+                  cites_per_year = mean(tcperyear[web==T]),
+                  cites_per_year_indexed = mean(tcperyear[web==T])/mean(tcperyear),
                   
-                  uniq_platforms = length(unique(str_trim(tolower(unlist(split(`scraped data_source`,',')))))),
+                  number_platforms = length(unique(str_trim(tolower(unlist(strsplit(`scraped data_source`,',')))))),
+                  platforms_per_paper = length(unique(str_trim(tolower(unlist(strsplit(`scraped data_source`,','))))))/length(which(web==T)),
+                  share_firsttime_platforms = mean(first_time[web==T]),
+                  share_worldwide = length(which(grepl('worldwide', `geography_country (or worldwide)`,ignore.case=T)))/length(which(web==T)),
                   share_northamerica = length(which(grepl('US|canada', `geography_country (or worldwide)`,ignore.case=T)))/length(which(web==T)),
                   share_europe = length(which(grepl('eu|ger|uk|germany|italy|sweden|france|austria|switz|denmark|netherl|poland|luxem|belgium|czech', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
                   share_asia = length(which(grepl('china|korea|japan', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
-                  share_other = length(which(grepl('worldwide|N[/]A|English[-]speaking', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
+                  share_other = length(which(grepl('N[/]A|English[-]speaking', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
                   
+                  top_keywords= get_n_keywords(as.character(keywords_author[web==T])),
                   
                  
                   share_textual = length(which(textual==1))/length(which(web==T)),
@@ -80,7 +100,6 @@ setcolorder(tmp2, c('variable','JM','JMR','JCR','JCP','MktSci'))
 
 library(knitr)
 kable(tmp2,digits=3)
-
 # -PhD/Assistant/Postdocs
 
 # -uniq platforms / number of papers (excluding "outliers")
