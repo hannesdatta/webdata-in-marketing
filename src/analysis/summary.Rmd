@@ -110,7 +110,27 @@ kable(tmp2,digits=3)
 
 ```{r}
 # JOURNAL TIME GRAPH
-timing = coding[, list(.N),by=c('journal', 'year')]
+timing = coding[web==T, list(.N),by=c('journal', 'year')]
+
+timing %>%
+  ggplot(aes(year, N)) +
+  geom_bar(stat = 'identity', aes(fill=journal)) +
+  labs(caption = 
+"Notes: Number of marketing research articles per year from 2004 to 2020. Included journals are Marketing Science 
+(MktSci), Journal of Marketing Research (JMR), Journal of Marketing (JM), Journal of Consumer Research (JCM), 
+Journal of Consumer Psychology (JCP).",
+       fill = "Journal",
+       x = "Year",
+       y = "Number of Articles") +
+  scale_fill_grey(start = 0.8, end = 0.1) +
+  theme_bw() +
+  theme(plot.caption = element_text(hjust = 0.2, face = "italic"),
+        axis.title = element_text(face="bold", size = "13"),
+        legend.title = element_text(face="bold", size = "13"),
+        axis.text.x = element_text(size="8.5")) +
+  scale_x_discrete(limits=c(2004:2020))
+dir.create('../../gen/analysis/output', recursive = T)
+ggsave('../../gen/analysis/output/plot.png')
 
 ```
 
