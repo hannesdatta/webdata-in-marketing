@@ -118,10 +118,10 @@ timing %>%
   mutate(journal = factor(journal, levels = c("JCP", "JCR", "MktSci", "JMR", "JM"))) %>%
   ggplot(aes(year, N)) +
   geom_bar(stat = 'identity', aes(fill=journal)) +
-  labs(caption = 
-"Notes: Number of marketing research articles per year from 2004 to 2020. Included journals are Marketing Science 
-(MktSci), Journal of Marketing Research (JMR), Journal of Marketing (JM), Journal of Consumer Research (JCM), 
-Journal of Consumer Psychology (JCP).",
+  labs(#caption = 
+#"Notes: Number of marketing research articles per year from 2004 to 2020. Included journals are Marketing Science 
+#(MktSci), Journal of Marketing Research (JMR), Journal of Marketing (JM), Journal of Consumer Research (JCM), 
+#Journal of Consumer Psychology (JCP).",
        fill = "Journal",
        x = "Year",
        y = "Number of Articles") +
@@ -131,7 +131,8 @@ Journal of Consumer Psychology (JCP).",
         axis.title = element_text(face="bold", size = "13"),
         legend.title = element_text(face="bold", size = "13"),
         axis.text.x = element_text(size="8.5")) +
-  scale_x_discrete(limits=c(2004:2020))
+  scale_x_discrete(limits=c(2004:2020)) + 
+  guides(fill = guide_legend(reverse=T))
 dir.create('../../gen/analysis/output', recursive = T)
 ggsave('../../gen/analysis/output/plot.png')
 
