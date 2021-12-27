@@ -46,6 +46,8 @@ library(readxl)
   raw_coding[, DOI:=gsub('\n', '', DOI)]
   raw_coding[, Journal:=NULL]
   
+  aggregators <- data.table(readxl::read_xlsx('../../gen/analysis/temp/coding.xlsx', sheet = 'aggregators'))
+
   # remove docs without DOIs
   impact = data.table(bib_analysis$MostCitedPapers)
   setkey(impact, DOI)
@@ -84,12 +86,21 @@ library(readxl)
            'scraped data_source', 'api', 'scraped', "year",
            'author_associate_professor', 'author_full_professor', 'author_practitioner',
            'author_assistant_professor', 'author_post_doc', 
-           'author_phd') #,'other_data')
+           'author_phd', 'aggregator_usage') #,'other_data')
   
   coding[web==T, scraped:=as.numeric(scraped)]
   coding[web==T, api:=as.numeric(api)]
+  
   #tmp = copy(coding)
   for (.v in vars) coding[is.na(get(.v)), (.v):=0]
+  
+  aggs <- str_trim(aggregators[aggregator==1]$source)
+  
+  coding[web==T, is_aggregator :=sapply(`scraped data_source`, function(x) {
+      tmp = sapply(unlist(strsplit(x, ',')), function(y) tolower(str_trim(y)))
+      any(tmp%in%aggs)
+        })]
+  coding[aggregator_usage==T&web==T, is_aggregator:=T]
   
   save(coding, papers, bib_analysis, file= '../../gen/analysis/temp/citation_database.RData')
   

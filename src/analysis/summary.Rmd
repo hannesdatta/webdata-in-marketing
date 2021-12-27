@@ -15,6 +15,7 @@ library(bibliometrix)
 library(dplyr)
 
 load(file= '../../gen/analysis/temp/citation_database.RData')
+
 ```
 
 ### Analysis
@@ -50,8 +51,39 @@ setkey(first_platforms_agg, doi)
 setkey(coding, doi)
 coding[first_platforms_agg, first_time:=i.first]
 
+coding[, first_web:=min(year[web==T]),by=c('journal')]
+
+growth = rbindlist(lapply(c('first','last'), function(.half) {
+  coding[, filter:=year>=first_web & year<=2012]
+  if (.half=='last') coding[, filter:=year>=first_web &year>2012]
+  
+  gr = coding[filter==T, list(publications = .N, years = uniqueN(year),
+                       publications_web = length(which(web==T)),
+              first_pub=unique(first_web)),
+                by=c('journal')][, half:=.half]
+  return(gr)
+}))
+  
+growth[, ':=' (avgoutput=publications/years, avgoutput_web = publications_web/years)]
+
+gr=growth[, list(growth_all = avgoutput[half=='last']/avgoutput[half=='first'],
+              growth_web = avgoutput_web[half=='last']/avgoutput_web[half=='first']), by = c('journal')]
+
+setkey(gr, journal)
+setkey(coding, journal)
+coding[gr, ':=' (growth_all = i.growth_all,
+                 growth_web = i.growth_web,
+                 growth_index = i.growth_web/i.growth_all)]
+
+  
+#top_keywords_first= get_n_keywords(as.character(keywords_author[web==T & year <=2012]))
+
+                  
+
 tmp = coding[, list(N=length(which(web==T)), first_web_paper = min(year[web==T]),
                   avg_papers_per_year = length(which(web==T))/(2020-min(year[web==T])+1),
+                  growth = mean(growth_web),
+                  growth_index = mean(growth_index),
                   share_juniors=length(which(author_assistant_professor+author_post_doc+author_phd>0))/length(which(web==T)),
                   
                   cites_per_year = mean(tcperyear[web==T]),
@@ -66,13 +98,16 @@ tmp = coding[, list(N=length(which(web==T)), first_web_paper = min(year[web==T])
                   share_asia = length(which(grepl('china|korea|japan', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
                   share_other = length(which(grepl('N[/]A|English[-]speaking', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
                   
-                  top_keywords= get_n_keywords(as.character(keywords_author[web==T])),
+                  top_keywords_first= get_n_keywords(as.character(keywords_author[web==T & year <=2012])),
+                  top_keywords_late= get_n_keywords(as.character(keywords_author[web==T & year >2012])),
+                  
                   
                  
                   share_textual = length(which(textual==1))/length(which(web==T)),
                   share_numeric = length(which(numeric==1))/length(which(web==T)),
                   share_images = length(which(images==1))/length(which(web==T)),
                   share_video = length(which(video==1))/length(which(web==T)),
+                  share_aggregator = length(which(is_aggregator))/length(which(web==T)),
                   
                   share_scraped = length(which(scraped==1&api==0))/length(which(web==T)),
                   share_api = length(which(api==1&scraped==0))/length(which(web==T)),
