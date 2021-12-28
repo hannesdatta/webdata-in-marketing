@@ -78,49 +78,87 @@ coding[gr, ':=' (growth_all = i.growth_all,
   
 #top_keywords_first= get_n_keywords(as.character(keywords_author[web==T & year <=2012]))
 
-                  
+platform_count = coding[web==T, list(platforms=unique(str_trim(tolower(unlist(strsplit(`scraped data_source`,',')))))),
+                          by = c('doi', 'journal')]
+top_platforms= platform_count[, list(N=.N),by=c('journal','platforms')]
+top_platforms[, marketshare:=(N/sum(N)),by=c('journal')]
+top_platforms[, rank:=rank(-marketshare, ties.method='min'),by=c('journal')]
 
+setkey(platform_count, journal, platforms)
+setkey(top_platforms, journal, platforms)
+
+platform_count[top_platforms, platform_rank:=i.rank]
+platform_count[, ':=' (top3 = any(platform_rank<=3),
+                       top5 = any(platform_rank<=5),
+                       n_sources = uniqueN(platforms)),by=c('doi')]
+
+setkey(platform_count, doi)
+setkey(coding, doi)
+
+coding[platform_count, ':=' (top3_platform = i.top3,
+                             top5_platform = i.top5,
+                             n_sources=i.n_sources)]
+
+
+
+first_platforms[, first:=year==min(year),by=c('platforms')]
+first_platforms_agg = first_platforms[, list(first=any(first)),by=c('doi')]
+         
+
+aggs <- rbindlist(lapply(c('journal','no'), function(.by) {
+  coding[, no:='total']
+  
 tmp = coding[, list(N=length(which(web==T)), first_web_paper = min(year[web==T]),
                   avg_papers_per_year = length(which(web==T))/(2020-min(year[web==T])+1),
                   growth = mean(growth_web),
                   growth_index = mean(growth_index),
-                  share_juniors=length(which(author_assistant_professor+author_post_doc+author_phd>0))/length(which(web==T)),
+                  share_juniors=round(100 * length(which(author_assistant_professor+author_post_doc+author_phd>0))/length(which(web==T)),0),
                   
                   cites_per_year = mean(tcperyear[web==T]),
                   cites_per_year_indexed = mean(tcperyear[web==T])/mean(tcperyear),
                   
-                  number_platforms = length(unique(str_trim(tolower(unlist(strsplit(`scraped data_source`,',')))))),
-                  platforms_per_paper = length(unique(str_trim(tolower(unlist(strsplit(`scraped data_source`,','))))))/length(which(web==T)),
-                  share_firsttime_platforms = mean(first_time[web==T]),
-                  share_worldwide = length(which(grepl('worldwide', `geography_country (or worldwide)`,ignore.case=T)))/length(which(web==T)),
-                  share_northamerica = length(which(grepl('US|canada', `geography_country (or worldwide)`,ignore.case=T)))/length(which(web==T)),
-                  share_europe = length(which(grepl('eu|ger|uk|germany|italy|sweden|france|austria|switz|denmark|netherl|poland|luxem|belgium|czech', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
-                  share_asia = length(which(grepl('china|korea|japan', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
-                  share_other = length(which(grepl('N[/]A|English[-]speaking', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),
+                  share_singlesource = round(100*length(which(n_sources[web==T]==1))/length(which(web==T)),0), 
                   
-                  top_keywords_first= get_n_keywords(as.character(keywords_author[web==T & year <=2012])),
-                  top_keywords_late= get_n_keywords(as.character(keywords_author[web==T & year >2012])),
+                  share_top5 = round(mean(100*top5_platform[web==T]),0),
+                 
+                  share_worldwide = round(100*length(which(grepl('worldwide', `geography_country (or worldwide)`,ignore.case=T)))/length(which(web==T)),0),
+                  share_northamerica = round(100*length(which(grepl('US|canada', `geography_country (or worldwide)`,ignore.case=T)))/length(which(web==T)),0),
+                  share_europe = round(100*length(which(grepl('eu|ger|uk|germany|italy|sweden|france|austria|switz|denmark|netherl|poland|luxem|belgium|czech', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),0),
+                  share_asia = round(100*length(which(grepl('china|korea|japan', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),0),
+                  share_other = round(100*length(which(grepl('N[/]A|English[-]speaking', `geography_country (or worldwide)`, ignore.case=T)))/length(which(web==T)),0),
+                  
+                #  top_keywords_first= get_n_keywords(as.character(keywords_author[web==T & year <=2012])),
+                #  top_keywords_late= get_n_keywords(as.character(keywords_author[web==T & year >2012])),
                   
                   
                  
-                  share_textual = length(which(textual==1))/length(which(web==T)),
-                  share_numeric = length(which(numeric==1))/length(which(web==T)),
-                  share_images = length(which(images==1))/length(which(web==T)),
-                  share_video = length(which(video==1))/length(which(web==T)),
-                  share_aggregator = length(which(is_aggregator))/length(which(web==T)),
+                  share_textual = round(100*length(which(textual==1))/length(which(web==T)),0),
+                  share_numeric = round(100*length(which(numeric==1))/length(which(web==T)),0),
+                  share_images = round(100 *length(which(images==1))/length(which(web==T)),0),
+                  share_video = round(100*length(which(video==1))/length(which(web==T)),0),
+                  share_aggregator = round(100 * length(which(is_aggregator))/length(which(web==T)),0),
                   
-                  share_scraped = length(which(scraped==1&api==0))/length(which(web==T)),
-                  share_api = length(which(api==1&scraped==0))/length(which(web==T)),
-                  share_scraped_api = length(which(scraped==1&api==1))/length(which(web==T)),
+                  #share_scraped = round(100* length(which(scraped==1&api==0))/length(which(web==T)),0),
+                  share_api = round(100*length(which(api==1&scraped==0))/length(which(web==T)),0),
+                  #share_scraped_api = length(which(scraped==1&api==1))/length(which(web==T)),
                   
-                  share_live = length(which(live_scraper==T))/length(which(web==T))
+                  share_live = round(100*length(which(live_scraper==T))/length(which(web==T)),0)
                   
                   #share_US_any = length(which(grepl('US', `Geography_Country (or worldwide)`)))/.N
-                  ), by = c('journal')]
+                  ), by = .by]
+if (.by=='no') setnames(tmp, 'no', 'journal')
+  tmp
+}))
 
-tmp2 = dcast(melt(tmp, id.vars=c('journal')), variable~journal)
-setcolorder(tmp2, c('variable','JM','JMR','JCR','JCP','MktSci'))
+journals = c('JM','JMR','JCR','JCP','MktSci')
+tmp2 = dcast(melt(aggs, id.vars=c('journal')), variable~journal)
+setcolorder(tmp2, c('variable', journals,  'total'))
 
+top_platforms[, text:=paste0(str_to_title(platforms), ' (', N, ')')]
+setorder(top_platforms, journal, rank)
+
+top_tmp =top_platforms[, list(Sources=paste0(text[rank<=10],collapse=', ')), by = c('journal')]
+top_tmp=top_tmp[match(journals, top_tmp$journal),]
 
 # Notes:
 # 
@@ -135,8 +173,9 @@ setcolorder(tmp2, c('variable','JM','JMR','JCR','JCP','MktSci'))
 
 
 library(knitr)
-kable(tmp2,digits=3)
+kable(tmp2,digits=2, caption = 'Web data in marketing research')
 # -PhD/Assistant/Postdocs
+kable(top_tmp, caption = 'Top 10 Sources by Journal')
 
 # -uniq platforms / number of papers (excluding "outliers")
 # - source concentration top 3 share, top 5 share (herfindahl). 
