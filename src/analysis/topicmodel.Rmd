@@ -1,0 +1,137 @@
+---
+title: "Summary stats"
+author: "Hannes Datta"
+date: "12/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(ggplot2)
+library(stringr)
+library(bibliometrix)
+library(dplyr)
+library(tidytext)
+library(ldatuning)
+# Topic model
+library(tidytext)
+library(hunspell)
+library(topicmodels)
+#fwrite(coding[!is.na(doi), c('doi','abstract_wos','web'), with=F], file = 'abstracts.csv')
+
+
+load(file= '../../gen/analysis/temp/citation_database.RData')
+
+```
+
+```{r}
+
+
+text_df <- tibble(doi = coding$doi, text = coding$abstract_wos)
+
+
+data(stop_words)
+
+library(tidyverse)
+
+abstract_words <- text_df %>% unnest_tokens(word, text) %>% 
+  mutate(stem = hunspell_stem(word)) %>% unnest(stem) %>% filter(!(stem%in%c('author')|word%in%c('research')))  %>% anti_join(stop_words) %>% drop_na(stem) %>% drop_na(doi) 
+
+abstract_words <- abstract_words %>% count(doi, stem, sort = TRUE)
+
+total_words <- abstract_words %>% group_by(doi) %>% summarize(total = sum(n))
+
+abstract_words <- left_join(abstract_words, total_words)
+
+
+abstract_tf_idf <- abstract_words %>%
+  bind_tf_idf(stem, doi, n)
+
+dfm = abstract_tf_idf %>%
+  cast_dfm(doi, stem, n)
+
+
+```
+```{r}
+library(quanteda)
+#dfm = dfm(texts, remove_punct=T, remove=stopwords("english"))
+dfm = dfm_trim(dfm, min_docfreq = 5)
+
+dtm = convert(dfm, to = "topicmodels") 
+
+set.seed(1)
+m = LDA(dtm, method = "Gibbs", k = 10,  control = list(alpha = 0.1))
+m
+
+
+
+tmp_term = terms(m, 10)
+
+result <- FindTopicsNumber(
+  dtm,
+  topics = seq(from = 2, to = 50, by = 1),
+  metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+  method = "Gibbs",
+  control = list(seed = 77, alpha = .1),
+  mc.cores = 3L,
+  verbose = TRUE
+)
+
+FindTopicsNumber_plot(result)
+
+
+topic.docs = posterior(m)$topics #[, topic] 
+colnames(topic.docs) <- paste0('topic', colnames(topic.docs))
+
+dt.topics = data.table(topic.docs, id = rownames(topic.docs))
+tmp = melt(dt.topics, id.var=c('id'))
+tmp[, id_n := as.numeric(gsub('text','', id))]
+tmp[, doi:=coding$doi[match(id_n, 1:nrow(coding))]]
+
+setkey(tmp, doi)
+setkey(coding, doi)
+tmp <- merge(tmp, coding, by = c('doi'), all.x=T)
+
+
+tmp[, max_val:=max(value), by=c('id')]
+
+final <- tmp[, list(web=sum(web*value)/sum(value), 
+           api=sum(api[web==T]*value[web==T])/sum(value[web==T]),
+           live=sum(live_scraper[web==T]*value[web==T])/sum(value[web==T]),
+           
+           web2=mean(web[value==max_val]),
+           api2=mean(api[web==T&value==max_val]),
+           live2=mean(live_scraper[web==T&value==max_val])),by=c('variable')]
+setnames(final, 'variable', 'topic')
+
+keywords = data.table(keywords=apply(terms(m,5),2, paste, collapse = ', '))
+keywords[, topic:=paste0('topic', 1:.N)]
+
+final <- merge(final, keywords, by=c('topic'), all.x=T)
+
+setorder(final, web)
+
+
+# extend w/ columns of potential data sources
+# %-API?
+# make bold NEW sources, and regular sources that HAVE been used
+# cut-off for number of topics
+# add avg. impact per article
+# how to 
+
+
+# Abhi: how to deal w/ fuzzy classifications?
+
+# verify abstract data
+
+result <- FindTopicsNumber(
+  dtm,
+  topics = seq(from = 2, to = 15, by = 1),
+  metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+  method = "Gibbs",
+  control = list(seed = 77),
+  mc.cores = 2L,
+  verbose = TRUE
+)
