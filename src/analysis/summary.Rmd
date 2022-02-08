@@ -19,6 +19,12 @@ load(file= '../../gen/analysis/temp/citation_database.RData')
 
 # dump to Johannes
 
+fwrite(coding, '../../gen/analysis/output/coding.csv')
+fwrite(cites_summary, '../../gen/analysis/output/cites_per_paper.csv')
+fwrite(cites_yearly, '../../gen/analysis/output/cites_per_paper_per_year.csv')
+
+
+
 ```
 
 # Overview

@@ -8,9 +8,8 @@ cites[, wos_match:=gsub(':', '',wos_id)]
 
 journals = cites[, list(.N),by=c('journal')]
 
-library(xlsx)
-write.xlsx(journals, 'journal.xlsx')
-
+#library(xlsx)
+#write.xlsx(journals, 'journal.xlsx')
 
 journals[, marketing:=grepl('marketing|consumer|retailing|brand|advertising|(product innovation management)|(service research)|(service management)|(service quality)', journal, ignore.case=T)]
 
