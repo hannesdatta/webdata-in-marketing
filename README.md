@@ -18,3 +18,5 @@ The project consists of three modules.
 1. `collect`: API collection for citation data
 2. `prepare`: Data preparation for analysis
 3. `analysis`: Citation analysis and descriptive statistics
+
+Part of the raw data is confidential, and not included in this repository for public download. Please contact the authors for details.
