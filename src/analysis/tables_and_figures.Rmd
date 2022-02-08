@@ -1,7 +1,7 @@
 ---
-title: "Summary stats"
+title: 'Tables and Figures for "Fields of Gold"'
 author: "Hannes Datta"
-date: "12/7/2021"
+date: "02/08/2022"
 output: html_document
 ---
 
@@ -14,20 +14,13 @@ library(stringr)
 library(dplyr)
 library(knitr)
 library(tidyverse)
+library(stargazer)
 
-load(file= '../../gen/analysis/temp/citation_database.RData')
-
-# dump to Johannes
-
-fwrite(coding, '../../gen/analysis/output/coding.csv')
-fwrite(cites_summary, '../../gen/analysis/output/cites_per_paper.csv')
-fwrite(cites_yearly, '../../gen/analysis/output/cites_per_paper_per_year.csv')
-
-
+coding <- fread('../../gen/prepare/output/coding.csv')
+cites_yearly <- fread('../../gen/prepare/output/cites_per_paper_per_year.csv')
+cites_summary <- fread('../../gen/prepare/output/cites_per_paper.csv')
 
 ```
-
-# Overview
 
 ```{r}
 coding[, first_web:=min(year[web==T]),by=c('journal')]
@@ -83,27 +76,10 @@ tmp2 = dcast(melt(aggs, id.vars=c('journal')), variable~journal)
 setcolorder(tmp2, c('variable', journals,  'total'))
 
 
-kable(tmp2,digits=2, caption = 'Web data in marketing research')
+kable(tmp2,digits=2, caption = 'Web data in marketing research (output & cites)')
 
 ```
 
-```{r}
-# JOURNAL TIME GRAPH
-timing = coding[web==T, list(N=.N),by=c('journal', 'year')]
-coding[, first_web:=min(year[web==T]),by=c('journal')]
-timing_share = coding[, list(share=mean(web[year>=first_web])), by= 'year']
-
-setorder(timing_share, year)
-
-setkey(timing_share, year)
-setkey(timing, year)
-timing[timing_share, share:=100*i.share]
-
-
-```
-
-
-# Impactful articles
 
 ```{r}
 
@@ -114,11 +90,9 @@ topx[, share_ft50 := 100*ncites_ft50/ncites_total]
 topx[, share_outside := 100*ncites_notmarketing/ncites_total]
 topx[, rank:=1:.N]
      
-kable(topx[1:30, c('rank','authors','year', 'ncites_total_avg'),with=F],digits=1)
+kable(topx[1:30, c('rank','authors','year', 'ncites_total_avg'),with=F],digits=1, caption = "Top papers in Marketing using Web Data")
 
 ```
-
-# Sources
 
 ```{r}
 
@@ -139,106 +113,12 @@ setorderv(tmp, 'N', order=-1L)
 tmp[, text:=paste0(str_to_title(platforms), ' (', N, ')')]
 tmp[, rank:=1:.N]
 
-kable(tmp[1:30])
+kable(tmp[1:30],caption = 'Top Sources')
 
 ```
 
 
-###
 ```{r}
-# citation figure
-
-setkey(cites_yearly, wos_match)
-setkey(coding, wos_id)
-
-cites_yearly[coding, ':=' (journal=i.journal, issue=i.issue, volume=i.vol,
-             web=i.web, pubyear = i.year)]
-
-for (i in 1:18) {
-  cites_yearly[, paste0('years_since_', i):= (year-pubyear+1)==i & web == F]
-  cites_yearly[, paste0('years_websince_', i):= (year-pubyear+1)==i & web == T]
-}
-
-cites_yearly[, fe:=paste0(journal,'_', volume, '_', issue)]
-
-cnt=0
-for (.fe in unique(cites_yearly$fe)) {
-  cnt=cnt+1
-  cites_yearly[, paste0('fe_', cnt):=ifelse(fe==.fe,1,0)-mean(fe==.fe)]
-}
-
-#X = as.matrix(cites_yearly[, grep('years_since_[0-9]|years_websince|fe_', colnames(cites_yearly), value=T),with=F])
-
-#m1<-lm(cites_yearly$Ncites_total_cum ~ -1 + X)
-
-
-
-# extract coefs
-extracted_coefs = data.table(summary(m1)$coefficients)
-extracted_coefs[, vars:=rownames(summary(m1)$coefficients)]
-
-
-
-extracted_coefs <- extracted_coefs[grepl('year', vars)]
-extracted_coefs[, web:=grepl('web', vars)]
-extracted_coefs[, year:= as.numeric(gsub('.*_', '', vars))]
-
-
-
-extracted_coefs[, web_label:=as.factor(ifelse(web==T, 'Web data', 'No web data'))]
-levels(extracted_coefs$web_label)=c('With web data', 'Without web data')
-
-
-extracted_coefs %>% filter(year<=15) %>% 
-  ggplot( aes(x=year, y=Estimate, group=web_label, linetype = web_label)) +
-    geom_line()+geom_point() + 
-  geom_errorbar(aes(ymin=Estimate-1.69*`Std. Error`, ymax=Estimate+1.69*`Std. Error`), width=.2,
-                 position=position_dodge(0.05)) + xlab('Years Since Publication') + ylab('Total Number of Citations')+scale_fill_manual(values = c("gray30", "grey85", "gray60", "gray40", "gray1")) +  theme_bw() + guides(linetype = guide_legend(reverse=F)) + 
-  labs(linetype='Use of Web Data')+
-  theme(plot.caption = element_text(hjust = 0.2, face = "italic"),
-        axis.title = element_text(face="bold", size = "13"),
-        legend.title = element_text(face="bold", size = "13"),
-        axis.text.x = element_text(size="8.5")) + 
-  guides(fill = guide_legend(reverse=T)) +theme(legend.position="bottom")
-
-
-dir.create('../../gen/analysis/output', recursive = T)
-
-
-ggsave('../../gen/analysis/output/citations.png',width=6,height=5)
-
-
-
-timing %>%
-  mutate(journal = factor(journal, levels = c("JCP", "JCR", "MktSci", "JMR", "JM"))) %>%
-  ggplot(aes(year, N)) +
-  geom_bar(stat = 'identity', aes(fill=journal)) +
-  geom_line(aes(x=year, y=share), colour="red", size = 1.5, linetype=1) + 
-  labs(fill = "Journal",
-       x = "Year of Publication",
-       y = "Number of Articles") +
-  scale_fill_manual(values = c("gray30", "grey85", "gray60", "gray40", "gray5")) +
-  theme_bw() +
-  theme(plot.caption = element_text(hjust = 0.2, face = "italic"),
-        axis.title = element_text(face="bold", size = "13"),
-        legend.title = element_text(face="bold", size = "13"),
-        axis.text.x = element_text(size="8.5")) +
-  scale_x_discrete(limits=c(2004:2020)) +  
-  scale_y_continuous(
-    "Number of Articles", 
-    sec.axis = sec_axis(~ . * 1.20, name = "Use of Web Data (in %)")
-  ) + 
-  guides(fill = guide_legend(reverse=T)) +theme(legend.position="bottom")
-
-
-ggsave('../../gen/analysis/output/barchart.png',width=6,height=5)
-ggsave('../../gen/analysis/output/barchart2.png',width=10,height=6)
-
-
-```
-
-```{r}
-
 
 setkey(cites_summary, wos_match)
 setkey(coding, wos_id)
@@ -265,12 +145,13 @@ m1<-lm(log(Ncites_total_avg+1)~1+web+as.factor(fe), data=cites_summary)
 m2<-lm(log(Ncites_total_avg+1)~1+web_JM + web_JCP + web_JCR + web_JMR + web_MktSci+as.factor(fe), data=cites_summary)
 
 
-library(stargazer)
-stargazer(list(marketing=m1,controls=m2),type='text', keep='web|intercept')
+
+stargazer(list(marketing=m1,controls=m2),type='text', keep='web|intercept', title = 'Citation Analysis')
 
 
 
 ```
+
 
 ```{r}
 
@@ -337,90 +218,109 @@ setcolorder(tmp2, c('variable', journals,  'total'))
 
 kable(tmp2,digits=2, caption = 'Data Selection and Extraction')
 
-                  #share_US_any = length(which(grepl('US', `Geography_Country (or worldwide)`)))/.N
-                  
-
 ```
 
-```{r}
 
-get_n_keywords = function(x, topx=3) {
- res=gsub('-', ' ', as.character(x))
-  
- res= (str_trim(tolower(unlist(strsplit(res, ';')))))
- res=table(res)
- res=rev(res[order(res)])
- return(paste0(names(res)[1:topx], collapse=', '))
+```{r}
+# citation figure
+
+setkey(cites_yearly, wos_match)
+setkey(coding, wos_id)
+
+cites_yearly[coding, ':=' (journal=i.journal, issue=i.issue, volume=i.vol,
+                           web=i.web, pubyear = i.year)]
+
+for (i in 1:18) {
+  cites_yearly[, paste0('years_since_', i):= (year-pubyear+1)==i & web == F]
+  cites_yearly[, paste0('years_websince_', i):= (year-pubyear+1)==i & web == T]
 }
-  
 
-# -uniq platforms / number of papers (excluding "outliers")
-# - source concentration top 3 share, top 5 share (herfindahl). 
-# - names of top 3 sources
+cites_yearly[, fe:=paste0(journal,'_', volume, '_', issue)]
 
-```
-
-## Concentration
-
-```{r}
-head(coding$keywords_author)
-
-cnt = tolower(str_trim(unlist(strsplit(coding[web==T]$keywords_author,';'))))
-tmp=data.table(keyword=cnt)[, list(.N),by=c('keyword')]
-
-setorder(tmp, N)
-
-```
-
-### Analysis
-```{r}
-# Overall
-clean_data_source <- function(x) {
-  x[grepl('googletrends', x, ignore.case=T)]<- 'Google Trends'
-x[grepl('imdb', x, ignore.case=T)]<- 'IMDB'
-x[grepl('amazon', x, ignore.case=T)]<- 'Amazon'
-x[grepl('bn[.]com', x, ignore.case=T)]<- 'Barnes & Nobles'
-
-  x
+cnt=0
+for (.fe in unique(cites_yearly$fe)) {
+  cnt=cnt+1
+  cites_yearly[, paste0('fe_', cnt):=ifelse(fe==.fe,1,0)-mean(fe==.fe)]
 }
-```
 
+
+X = as.matrix(cites_yearly[, grep('years_since_[0-9]|years_websince|fe_', colnames(cites_yearly), value=T),with=F])
+
+m1<-lm(cites_yearly$Ncites_total_cum ~ -1 + X)
+
+
+# extract coefs
+extracted_coefs = data.table(summary(m1)$coefficients)
+extracted_coefs[, vars:=rownames(summary(m1)$coefficients)]
+
+
+
+extracted_coefs <- extracted_coefs[grepl('year', vars)]
+extracted_coefs[, web:=grepl('web', vars)]
+extracted_coefs[, year:= as.numeric(gsub('.*_', '', vars))]
+
+
+
+extracted_coefs[, web_label:=as.factor(ifelse(web==T, 'Web data', 'No web data'))]
+levels(extracted_coefs$web_label)=c('With web data', 'Without web data')
+
+
+extracted_coefs %>% filter(year<=15) %>% 
+  ggplot( aes(x=year, y=Estimate, group=web_label, linetype = web_label)) +
+  geom_line()+geom_point() + 
+  geom_errorbar(aes(ymin=Estimate-1.69*`Std. Error`, ymax=Estimate+1.69*`Std. Error`), width=.2,
+                position=position_dodge(0.05)) + xlab('Years Since Publication') + ylab('Total Number of Citations')+scale_fill_manual(values = c("gray30", "grey85", "gray60", "gray40", "gray1")) +  theme_bw() + guides(linetype = guide_legend(reverse=F)) + 
+  labs(linetype='Use of Web Data')+
+  theme(plot.caption = element_text(hjust = 0.2, face = "italic"),
+        axis.title = element_text(face="bold", size = "13"),
+        legend.title = element_text(face="bold", size = "13"),
+        axis.text.x = element_text(size="8.5")) + 
+  guides(fill = guide_legend(reverse=T)) +theme(legend.position="bottom")
+
+
+dir.create('../../gen/analysis/output', recursive = T)
+
+ggsave('../../gen/analysis/output/citations.png',width=6,height=5)
+
+
+```
 
 
 ```{r}
+# JOURNAL TIME GRAPH
 
-tmp = platform_count[, list(N=uniqueN(doi)),by=c('platforms')]
-setorderv(tmp, 'N', order=-1L)
+timing = coding[web==T, list(N=.N),by=c('journal', 'year')]
+coding[, first_web:=min(year[web==T]),by=c('journal')]
+timing_share = coding[, list(share=mean(web[year>=first_web])), by= 'year']
 
+setorder(timing_share, year)
 
-tmp[, text:=paste0(str_to_title(platforms), ' (', N, ')')]
-tmp[, rank:=1:.N]
+setkey(timing_share, year)
+setkey(timing, year)
+timing[timing_share, share:=100*i.share]
 
-tmp[1:30, c('rank','text'),with=F]
+timing %>%
+  mutate(journal = factor(journal, levels = c("JCP", "JCR", "MktSci", "JMR", "JM"))) %>%
+  ggplot(aes(year, N)) +
+  geom_bar(stat = 'identity', aes(fill=journal)) +
+  geom_line(aes(x=year, y=share), colour="red", size = 1.5, linetype=1) + 
+  labs(fill = "Journal",
+       x = "Year of Publication",
+       y = "Number of Articles") +
+  scale_fill_manual(values = c("gray30", "grey85", "gray60", "gray40", "gray5")) +
+  theme_bw() +
+  theme(plot.caption = element_text(hjust = 0.2, face = "italic"),
+        axis.title = element_text(face="bold", size = "13"),
+        legend.title = element_text(face="bold", size = "13"),
+        axis.text.x = element_text(size="8.5")) +
+  scale_x_discrete(limits=c(2004:2020)) +  
+  scale_y_continuous(
+    "Number of Articles", 
+    sec.axis = sec_axis(~ . * 1.20, name = "Use of Web Data (in %)")
+  ) + 
+  guides(fill = guide_legend(reverse=T)) +theme(legend.position="bottom")
 
-coding[web==T, list(1-mean(api))]
+ggsave('../../gen/analysis/output/barchart.png',width=10,height=6)
+
 
 ```
-
-
-
-```{r}
-  
-# Notes:
-# 
-# focal variables of interest
-# --> add avg. number of platforms
-# add platform concentration (make clean column)
-# keyword distrubtion + keyword concentration index
-# Hannes checks web of science to compare author juniors
-# relative impact (impact of paper, relative to all papers in the journal)
-# Highest cited papers, per year + references
-# Illustrative papers, highest-impact research, by year
-
-
-# -PhD/Assistant/Postdocs
-kable(top_tmp, caption = 'Top 10 Sources by Journal')
-```
-
-
-
