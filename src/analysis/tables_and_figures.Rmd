@@ -261,9 +261,7 @@ extracted_coefs[, year:= as.numeric(gsub('.*_', '', vars))]
 
 
 
-extracted_coefs[, web_label:=as.factor(ifelse(web==T, 'Web data', 'No web data'))]
-levels(extracted_coefs$web_label)=c('With web data', 'Without web data')
-
+extracted_coefs[, web_label:=as.factor(ifelse(web==T, 'With web data', 'Without web data'))]
 
 extracted_coefs %>% filter(year<=15) %>% 
   ggplot( aes(x=year, y=Estimate, group=web_label, linetype = web_label)) +
