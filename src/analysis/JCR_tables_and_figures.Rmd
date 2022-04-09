@@ -124,9 +124,7 @@ setkey(cites_summary, wos_match)
 setkey(coding, wos_id)
 
 cites_summary[coding, ':=' (journal=i.journal, issue=i.issue, volume=i.vol,
-             web=i.web, pubyear = i.year, keywords=i.keywords)]
-cites_summary[, online:=grepl('online|ecommerce|digital|social|crowdfunding|technology|web|mobile', keywords)]
-
+             web=i.web, pubyear = i.year)]
 
 cites_summary[, fe:=paste0(journal,'_', volume, '_', issue)]
 
@@ -144,12 +142,11 @@ cites_summary[, fe:=paste0(journal,'_', volume, '_', issue)]
 
 
 m1<-lm(log(Ncites_total_avg+1)~1+web+as.factor(fe), data=cites_summary)
-m1b<-lm(log(Ncites_total_avg+1)~1+web+online+as.factor(fe), data=cites_summary)
 m2<-lm(log(Ncites_total_avg+1)~1+web_JM + web_JCP + web_JCR + web_JMR + web_MktSci+as.factor(fe), data=cites_summary)
 
 
 
-stargazer(list(marketing=m1,marketing_w_online=m1b,controls=m2),type='text', keep='web|intercept|online', title = 'Citation Analysis')
+stargazer(list(marketing=m1,controls=m2),type='text', keep='web|intercept', title = 'Citation Analysis')
 
 
 
@@ -264,7 +261,9 @@ extracted_coefs[, year:= as.numeric(gsub('.*_', '', vars))]
 
 
 
-extracted_coefs[, web_label:=as.factor(ifelse(web==T, 'With web data', 'Without web data'))]
+extracted_coefs[, web_label:=as.factor(ifelse(web==T, 'Web data', 'No web data'))]
+levels(extracted_coefs$web_label)=c('With web data', 'Without web data')
+
 
 extracted_coefs %>% filter(year<=15) %>% 
   ggplot( aes(x=year, y=Estimate, group=web_label, linetype = web_label)) +
@@ -322,37 +321,6 @@ timing %>%
   guides(fill = guide_legend(reverse=T)) +theme(legend.position="bottom")
 
 ggsave('../../gen/analysis/output/barchart.png',width=10,height=6)
-
-
-```
-
-```{r}
-# AGGREGATE TIME GRAPH
-
-timing = coding[, list(N=.N, Nweb=sum(web==T)),by=c('year')]
-timing[, share:=100*(Nweb/N)]
-
-timing %>%
-  ggplot(aes(year, Nweb)) +
-  geom_bar(stat = 'identity') +
-  geom_line(aes(x=year, y=share), colour="red", size = 1.5, linetype=1) + 
-  labs(#fill = "Journal",
-       x = "Year of Publication",
-       y = "Number of Articles") +
-  #scale_fill_manual(values = c("gray30", "grey85", "gray60", "gray40", "gray5")) +
-  theme_bw() +
-  theme(plot.caption = element_text(hjust = 0.2, face = "italic"),
-        axis.title = element_text(face="bold", size = "13"),
-        legend.title = element_text(face="bold", size = "13"),
-        axis.text.x = element_text(size="8.5")) +
-  scale_x_discrete(limits=c(2004:2020)) +  
-  scale_y_continuous(
-    "Number of Articles", 
-    sec.axis = sec_axis(~ . * 1.20, name = "Use of Web Data (in %)")
-  ) + 
-  guides(fill = guide_legend(reverse=T)) +theme(legend.position="bottom")
-
-ggsave('../../gen/analysis/output/barchart_collapsed.png',width=10,height=6)
 
 
 ```

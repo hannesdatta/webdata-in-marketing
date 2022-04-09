@@ -80,12 +80,23 @@ library(readxl)
                         is_ft50 = i.FT_50)]
   cites[is.na(is_marketing), is_marketing:=0]
   cites[is.na(is_ft50), is_ft50:=0]
+  cites[, is_jm := grepl('^JOURNAL OF MARKETING$', journal)]
+  cites[, is_jmr := grepl('^JOURNAL OF MARKETING RESEARCH$', journal)]
+  cites[, is_mktsci := grepl('^MARKETING SCIENCE$', journal)]
+  cites[, is_jcr := grepl('^JOURNAL OF CONSUMER RESEARCH$', journal)]
+  cites[, is_ijrm := grepl('^INTERNATIONAL JOURNAL OF RESEARCH IN MARKETING$', journal)]
+  
   
   # expand (i.e., include "empty" years where needed)
   tmp = cites[, list(Ncites_total = uniqueN(citing_id),
                               Ncites_marketing=uniqueN(citing_id[is_marketing==1]),
                               Ncites_ft50 = uniqueN(citing_id[is_ft50==1]),
-                              Ncites_notmarketing = uniqueN(citing_id[is_marketing==0])),by=c('wos_match', 'year')]
+                              Ncites_notmarketing = uniqueN(citing_id[is_marketing==0]),
+                              Ncites_jm = uniqueN(citing_id[is_jm]),
+                              Ncites_jmr = uniqueN(citing_id[is_jmr]),
+                              Ncites_mktsci = uniqueN(citing_id[is_mktsci]),
+                              Ncites_jcr = uniqueN(citing_id[is_jcr]),
+                              Ncites_ijrm = uniqueN(citing_id[is_ijrm])),by=c('wos_match', 'year')]
   cites <- cites[year<=2021]
   
   empty_set = papers[, list(year=PY:2021), by = c('UT')]
@@ -110,7 +121,7 @@ library(readxl)
   cites_summary <- merge(cites_sum, cites_avg, by.x=c('wos_match'), by.y=c('wos_match_avg'), all.x=T)
   
   # ONE DATA SET - ALL PAPERS PLUS OUR CODING
-  tmp = data.table(papers[, c('DI','PY', 'JI', 'DE', 'AB', 'PN', 'VL', 'UT', 'AU')])
+  tmp = data.table(papers[, c('DI','PY', 'JI', 'DE', 'AB', 'PN', 'VL', 'UT', 'AU', 'TI')])
   tmp[, journal:=as.character(NA)]
   tmp[grepl('Psych', JI,ignore.case=T), journal:='JCP']
   tmp[grepl('Consum[.] Res', JI,ignore.case=T), journal:='JCR']
@@ -126,6 +137,7 @@ library(readxl)
   setnames(tmp, 'UT', 'wos_id')
   setnames(tmp, 'DI', 'doi')
   setnames(tmp, 'AU', 'authors')
+  setnames(tmp, 'TI', 'title_wos')
   
   # author count
   tmp[, nauthors := length(unique(unlist(strsplit(authors, ';', fixed=T)))), by = c('wos_id')]
